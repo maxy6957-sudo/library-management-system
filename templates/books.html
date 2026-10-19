@@ -60,12 +60,18 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if book.get('available_copies', 0) > 0 %}
                             <span style="font-weight: 700; color: #15803d;">
                                 {{ book.get('available_copies', 0) }}
                             </span>
                             <span style="color: #64748b; font-size: 11.5px;">
                                 / {{ book.get('total_copies', '-') }} on shelf
                             </span>
+                            {% else %}
+                            <span class="badge-pill" style="background: #fee2e2; color: #b91c1c; font-weight: 600;">
+                                0 / {{ book.get('total_copies', '-') }} (All Borrowed)
+                            </span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

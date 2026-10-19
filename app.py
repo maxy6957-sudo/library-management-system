@@ -81,30 +81,34 @@ def api_stats():
 def get_status_stats():
     query = """
     CALL () {
-        MATCH (b:BOOK)
+        OPTIONAL MATCH (b:BOOK)
         WHERE b.book_id IS NOT NULL OR b.title IS NOT NULL
         RETURN count(b) AS total_books
     }
     CALL () {
-        MATCH (m:MEMBER)
+        OPTIONAL MATCH (m:MEMBER)
         WHERE m.member_id IS NOT NULL
         RETURN count(m) AS total_members
     }
     CALL () {
-        MATCH (c:BOOK_COPY)
-        WHERE toLower(toString(coalesce(c.avail_status, '')))
-              IN ['available', 'avail']
-        RETURN count(c) AS available_copies
+        OPTIONAL MATCH (c:BOOK_COPY)
+        WITH count(c) AS total_copies
+        OPTIONAL MATCH (i:ISSUE_TRANSACTION)
+        WHERE (i.return_date IS NULL OR toString(i.return_date) = '')
+          AND toLower(toString(coalesce(i.issue_status, i.status, 'issued')))
+              IN ['issued', 'active', 'borrowed', 'open']
+        WITH total_copies, count(i) AS active_loans_count
+        RETURN case when total_copies >= active_loans_count then total_copies - active_loans_count else 0 end AS available_copies
     }
     CALL () {
-        MATCH (i:ISSUE_TRANSACTION)
+        OPTIONAL MATCH (i:ISSUE_TRANSACTION)
         WHERE (i.return_date IS NULL OR toString(i.return_date) = '')
           AND toLower(toString(coalesce(i.issue_status, i.status, 'issued')))
               IN ['issued', 'active', 'borrowed', 'open']
         RETURN count(i) AS active_loans
     }
     CALL () {
-        MATCH (f:FINE)
+        OPTIONAL MATCH (f:FINE)
         WHERE toLower(toString(coalesce(f.payment_status, '')))
               IN ['pending', 'unpaid', 'due']
         WITH count(f) AS recorded_fines
@@ -157,15 +161,21 @@ def books_page():
     OPTIONAL MATCH (b)-[:BELONGS_TO]->(cat:CATEGORY)
     OPTIONAL MATCH (b)-[:WRITTEN_BY|WRITES]-(a:AUTHOR)
     OPTIONAL MATCH (b)-[:HAS_COPY|HAS]->(c:BOOK_COPY)
-
+    WITH b, cat, collect(DISTINCT a.author_name) AS authors, collect(DISTINCT c) AS copies
+    OPTIONAL MATCH (i:ISSUE_TRANSACTION)
+    WHERE (i.return_date IS NULL OR toString(i.return_date) = '')
+      AND toLower(toString(coalesce(i.issue_status, i.status, 'issued'))) IN ['issued', 'active', 'borrowed', 'open']
+      AND (
+        (i)-[:USES_COPY|APPEARS_IN]->(:BOOK_COPY)<-[:HAS_COPY|HAS]-(b)
+        OR (i)-[:ISSUED_BOOK|BORROWED]-(b)
+      )
+    WITH b, cat, authors, size(copies) AS total_physical_copies, count(DISTINCT i) AS active_loans
     RETURN properties(b) AS book,
            cat.category_name AS category,
-           collect(DISTINCT a.author_name) AS authors,
-           count(DISTINCT CASE
-               WHEN toLower(toString(coalesce(c.avail_status, '')))
-                    IN ['available', 'avail']
-               THEN c.copy_id
-           END) AS available_copies
+           authors,
+           total_physical_copies,
+           active_loans,
+           case when total_physical_copies >= active_loans then total_physical_copies - active_loans else 0 end AS available_copies
     ORDER BY book.title
     """
 
@@ -178,7 +188,9 @@ def books_page():
         book["authors"] = [
             author for author in (row["authors"] or []) if author
         ]
+        book["total_copies"] = row["total_physical_copies"] if row["total_physical_copies"] > 0 else int(book.get("total_copies", 1))
         book["available_copies"] = row["available_copies"]
+        book["active_loans"] = row["active_loans"]
         if "isbn" not in book and "ISBN" in book:
             book["isbn"] = book["ISBN"]
         books.append(book)
@@ -256,11 +268,19 @@ def entity_page(entity):
         copies = run_query("""
             MATCH (c:BOOK_COPY)
             OPTIONAL MATCH (b:BOOK)-[:HAS_COPY|HAS]->(c)
+            OPTIONAL MATCH (i:ISSUE_TRANSACTION)-[:USES_COPY|APPEARS_IN]->(c)
+            WHERE (i.return_date IS NULL OR toString(i.return_date) = '')
+              AND toLower(toString(coalesce(i.issue_status, i.status, 'issued'))) IN ['issued', 'active', 'borrowed', 'open']
+            WITH c, b, count(i) AS active_loans_on_copy
             RETURN c.copy_id AS copy_id,
                    b.book_id AS book_id,
                    b.title AS title,
                    c.shelf_location AS shelf_location,
-                   c.avail_status AS avail_status
+                   CASE
+                       WHEN active_loans_on_copy > 0 THEN 'issued'
+                       WHEN toLower(toString(coalesce(c.avail_status, ''))) IN ['available', 'avail'] THEN 'available'
+                       ELSE coalesce(c.avail_status, 'available')
+                   END AS avail_status
             ORDER BY c.copy_id
         """)
         return render_template(
@@ -310,7 +330,7 @@ def entity_page(entity):
             OPTIONAL MATCH (i:ISSUE_TRANSACTION)-[:HAS_FINE|GENERATES]-(f)
             OPTIONAL MATCH (m:MEMBER)-[:BORROWED|BORROWS]-(i)
             OPTIONAL MATCH (i)-[:USES_COPY|APPEARS_IN]-(c:BOOK_COPY)-[:HAS_COPY|HAS]-(b1:BOOK)
-            OPTIONAL MATCH (i)-[:ISSUED_BOOK|BORROWED_BOOK|FOR_BOOK|LOANED]-(b2:BOOK)
+            OPTIONAL MATCH (i)-[:ISSUED_BOOK|BORROWED]-(b2:BOOK)
             WITH f, i,
                  head(collect(DISTINCT coalesce(b2.title, b1.title))) AS book_title,
                  head(collect(DISTINCT (m.first_name + ' ' + coalesce(m.last_name, '')))) AS member_name
@@ -340,7 +360,7 @@ def entity_page(entity):
                   END) AS est_amount
             OPTIONAL MATCH (m:MEMBER)-[:BORROWED|BORROWS]-(i)
             OPTIONAL MATCH (i)-[:USES_COPY|APPEARS_IN]-(c:BOOK_COPY)-[:HAS_COPY|HAS]-(b1:BOOK)
-            OPTIONAL MATCH (i)-[:ISSUED_BOOK|BORROWED_BOOK|FOR_BOOK|LOANED]-(b2:BOOK)
+            OPTIONAL MATCH (i)-[:ISSUED_BOOK|BORROWED]-(b2:BOOK)
             WITH i, est_amount,
                  head(collect(DISTINCT coalesce(b2.title, b1.title))) AS book_title,
                  head(collect(DISTINCT (m.first_name + ' ' + coalesce(m.last_name, '')))) AS member_name
@@ -378,7 +398,7 @@ def circulation_page():
         OPTIONAL MATCH (m:MEMBER)-[:BORROWED|BORROWS]-(i)
         OPTIONAL MATCH (i)-[:USES_COPY|APPEARS_IN]-(c:BOOK_COPY)
         OPTIONAL MATCH (c)-[:HAS_COPY|HAS]-(b1:BOOK)
-        OPTIONAL MATCH (i)-[:ISSUED_BOOK|BORROWED_BOOK|FOR_BOOK|LOANED]-(b2:BOOK)
+        OPTIONAL MATCH (i)-[:ISSUED_BOOK|BORROWED]-(b2:BOOK)
         WITH i, m, c,
              head(collect(DISTINCT coalesce(b2.title, b1.title))) AS title,
              head(collect(DISTINCT coalesce(c.copy_id, 'DIRECT'))) AS copy_id
@@ -395,10 +415,15 @@ def circulation_page():
         MATCH (b:BOOK)-[:HAS_COPY|HAS]->(c:BOOK_COPY)
         WHERE toLower(toString(coalesce(c.avail_status, '')))
               IN ['available', 'avail']
+          AND NOT EXISTS {
+              MATCH (active:ISSUE_TRANSACTION)-[:USES_COPY]->(c)
+              WHERE (active.return_date IS NULL OR toString(active.return_date) = '')
+                AND toLower(toString(coalesce(active.issue_status, active.status, 'issued'))) IN ['issued', 'active', 'borrowed', 'open']
+          }
         RETURN b.book_id AS book_id,
                b.title AS title,
                c.copy_id AS copy_id
-        ORDER BY b.title
+        ORDER BY b.title, c.copy_id
     """)
 
     members = run_query("""
@@ -456,21 +481,31 @@ def issue_book():
     MATCH (m:MEMBER {member_id: $member_id})
     MATCH (c:BOOK_COPY {copy_id: $copy_id})
     MATCH (l:LIBRARIAN {librarian_id: $librarian_id})
+    OPTIONAL MATCH (b:BOOK)-[:HAS_COPY|HAS]->(c)
 
     WHERE toLower(toString(coalesce(c.avail_status, '')))
           IN ['available', 'avail']
+      AND NOT EXISTS {
+          MATCH (active:ISSUE_TRANSACTION)-[:USES_COPY]->(c)
+          WHERE (active.return_date IS NULL OR toString(active.return_date) = '')
+            AND toLower(toString(coalesce(active.issue_status, active.status, 'issued'))) IN ['issued', 'active', 'borrowed', 'open']
+      }
 
     CREATE (i:ISSUE_TRANSACTION {
         issue_id: 'ISSUE-' + randomUUID(),
         issue_date: toString(date()),
         due_date: $due_date,
         return_date: null,
-        issue_status: 'issued'
+        issue_status: 'issued',
+        status: 'ISSUED'
     })
 
     CREATE (m)-[:BORROWED]->(i)
     CREATE (i)-[:USES_COPY]->(c)
     CREATE (i)-[:HANDLED_BY]->(l)
+    FOREACH (_ IN CASE WHEN b IS NOT NULL THEN [1] ELSE [] END |
+        CREATE (i)-[:ISSUED_BOOK]->(b)
+    )
 
     SET c.avail_status = 'issued'
 
@@ -647,12 +682,12 @@ def recommendations_page():
 
         OPTIONAL MATCH (selected)-[:BORROWED|BORROWS]-(i1:ISSUE_TRANSACTION)
         OPTIONAL MATCH (i1)-[:USES_COPY|APPEARS_IN]-(:BOOK_COPY)-[:HAS_COPY|HAS]-(p1:BOOK)
-        OPTIONAL MATCH (i1)-[:ISSUED_BOOK|BORROWED_BOOK|FOR_BOOK|LOANED]-(p2:BOOK)
+        OPTIONAL MATCH (i1)-[:ISSUED_BOOK|BORROWED]-(p2:BOOK)
         WITH selected, collect(DISTINCT coalesce(p1.book_id, p2.book_id)) AS past_ids
 
         MATCH (other:MEMBER)-[:BORROWED|BORROWS]-(i2:ISSUE_TRANSACTION)
         OPTIONAL MATCH (i2)-[:USES_COPY|APPEARS_IN]-(:BOOK_COPY)-[:HAS_COPY|HAS]-(c1:BOOK)
-        OPTIONAL MATCH (i2)-[:ISSUED_BOOK|BORROWED_BOOK|FOR_BOOK|LOANED]-(c2:BOOK)
+        OPTIONAL MATCH (i2)-[:ISSUED_BOOK|BORROWED]-(c2:BOOK)
         WITH selected, past_ids, other, coalesce(c2, c1) AS candidate
         WHERE candidate IS NOT NULL
           AND other <> selected
