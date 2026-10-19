@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Book Copies | Library Management System{% endblock %}
+
+{% block content %}
+<div class="page-banner">
+    <div class="page-banner-title">
+        <h2>Inventory Book Copies</h2>
+        <p>Physical copy records, shelf locations, and real-time loan statuses linked via Neo4j.</p>
+    </div>
+    <div>
+        <a href="/circulation" class="btn-ui btn-primary">⇄ Circulation Desk</a>
+    </div>
+</div>
+
+<div class="page-container">
+    <div class="ui-card">
+        <div class="ui-card-header">
+            <h3>Physical Inventory Copies</h3>
+            <span class="badge-pill badge-active">{{ copies|length }} Total Copies</span>
+        </div>
+        <div class="ui-table-wrap">
+            {% if copies %}
+            <table class="ui-table">
+                <thead>
+                    <tr>
+                        <th>Copy ID</th>
+                        <th>Book ID</th>
+                        <th>Title</th>
+                        <th>Shelf Location</th>
+                        <th>Availability Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for copy in copies %}
+                    <tr>
+                        <td class="mono" style="font-weight: 700; color: #2563eb;">{{ copy.copy_id or '-' }}</td>
+                        <td class="mono">{{ copy.book_id or '-' }}</td>
+                        <td style="font-weight: 600;">{{ copy.title or 'Untitled' }}</td>
+                        <td>
+                            <span class="badge-pill" style="background: #f1f5f9; color: #475569;">
+                                📍 {{ copy.shelf_location or '-' }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if copy.avail_status == 'available' or copy.avail_status == 'avail' %}
+                                <span class="badge-pill" style="background: #dcfce7; color: #15803d;">● Available</span>
+                            {% else %}
+                                <span class="badge-pill" style="background: #fef3c7; color: #b45309;">● Issued</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="padding: 32px; text-align: center; color: #64748b; font-size: 13px;">
+                No copies recorded in the inventory.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

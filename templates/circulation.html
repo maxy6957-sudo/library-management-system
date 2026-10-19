@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Circulation Desk | Library Management System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .circulation-layout {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    @media (max-width: 960px) {
+        .circulation-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #475569;
+        margin-bottom: 6px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #0f172a;
+        background: #ffffff;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+
+    .form-control:focus {
+        border-color: #2563eb;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px;
+        border-radius: 9999px;
+        font-size: 11.5px;
+        font-weight: 600;
+    }
+
+    .status-active {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .status-overdue {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .btn-return {
+        padding: 5px 12px;
+        background: #15803d;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-return:hover {
+        background: #166534;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- TOP PAGE BANNER -->
+<div class="page-banner">
+    <div class="page-banner-title">
+        <h2>Circulation Desk</h2>
+        <p>Issue book copies, monitor active reader loans, and process return transactions with automated fines.</p>
+    </div>
+    <div>
+        <a href="/data/fines" class="btn-ui">View Fines Ledger →</a>
+    </div>
+</div>
+
+<div class="page-container">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="flash-message {{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <div class="circulation-layout">
+        
+        <!-- LEFT COLUMN: ISSUE BOOK FORM -->
+        <div class="ui-card">
+            <div class="ui-card-header">
+                <h3>Issue Book Copy</h3>
+            </div>
+            <div class="ui-card-body">
+                {% if books and members and librarians %}
+                <form action="/issue" method="POST">
+                    
+                    <div class="form-group">
+                        <label for="copy_id">Available Book Copy</label>
+                        <select class="form-control" name="copy_id" id="copy_id" required>
+                            <option value="">Select an available copy</option>
+                            {% for book in books %}
+                            <option value="{{ book.copy_id }}">
+                                {{ book.title or 'Untitled' }} — Copy {{ book.copy_id }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="member_id">Patron / Member</label>
+                        <select class="form-control" name="member_id" id="member_id" required>
+                            <option value="">Select a member</option>
+                            {% for member in members %}
+                            <option value="{{ member.member_id }}">
+                                {{ member.member_id }} — {{ member.first_name or '' }} {{ member.last_name or '' }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="librarian_id">Authorizing Librarian</label>
+                        <select class="form-control" name="librarian_id" id="librarian_id" required>
+                            <option value="">Select a librarian</option>
+                            {% for librarian in librarians %}
+                            <option value="{{ librarian.librarian_id }}">
+                                {{ librarian.librarian_id }} — {{ librarian.first_name or '' }} {{ librarian.last_name or '' }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="due_date">Due Date</label>
+                        <input type="date" class="form-control" name="due_date" id="due_date" required>
+                    </div>
+
+                    <button type="submit" class="btn-ui btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;">
+                        Complete Checkout (Issue)
+                    </button>
+                </form>
+                {% else %}
+                <p style="color: #64748b; font-size: 13px;">
+                    To issue a book, the database requires at least one available book copy, one member, and one librarian.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: ACTIVE LOANS TABLE -->
+        <div class="ui-card">
+            <div class="ui-card-header">
+                <h3>Active &amp; Overdue Loans</h3>
+                <span class="badge-pill badge-active">{{ loans|length }} Active</span>
+            </div>
+            <div class="ui-table-wrap">
+                {% if loans %}
+                <table class="ui-table">
+                    <thead>
+                        <tr>
+                            <th>Issue ID</th>
+                            <th>Book Title</th>
+                            <th>Copy ID</th>
+                            <th>Member</th>
+                            <th>Issue Date</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in loans %}
+                        <tr>
+                            <td class="mono" style="font-weight: 700; color: #2563eb;">{{ loan.issue_id or '-' }}</td>
+                            <td style="font-weight: 600;">{{ loan.title or 'Book details unavailable' }}</td>
+                            <td class="mono">{{ loan.copy_id or '-' }}</td>
+                            <td class="mono">{{ loan.member_id or '-' }}</td>
+                            <td>{{ loan.issue_date or '-' }}</td>
+                            <td>{{ loan.due_date or '-' }}</td>
+                            <td>
+                                {% if loan.due_date and loan.due_date|string < today|string %}
+                                    <span class="status-badge status-overdue">● Overdue</span>
+                                {% else %}
+                                    <span class="status-badge status-active">● Active</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="/return/{{ loan.issue_id }}" method="POST" onsubmit="return confirm('Confirm book return and calculate any accrued fines?');" style="margin: 0;">
+                                    <button class="btn-return" type="submit">Return</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="padding: 32px; text-align: center; color: #64748b; font-size: 13px;">
+                    No active loans currently in circulation.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

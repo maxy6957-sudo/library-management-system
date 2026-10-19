@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Library Management System{% endblock %}</title>
+
+    <style>
+        :root {
+            --header-bg: #0f172a;
+            --sidebar-bg: #f8fafc;
+            --sidebar-border: #e2e8f0;
+            --bg-page: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-subtle: #e2e8f0;
+            --brand-primary: #182b49;
+            --brand-accent: #2563eb;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* TOP NAVIGATION BAR */
+        header.top-bar {
+            height: 56px;
+            background: var(--header-bg);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 1px solid #1e293b;
+            flex-shrink: 0;
+            z-index: 50;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .brand-text h1 {
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.1;
+            color: #ffffff;
+            letter-spacing: -0.2px;
+        }
+
+        .brand-text p {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 1px;
+        }
+
+        .aura-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #022c22;
+            color: #34d399;
+            border: 1px solid #065f46;
+            border-radius: 9999px;
+            padding: 3px 10px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .aura-status-pill .pulse-dot {
+            width: 7px;
+            height: 7px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 6px #10b981;
+        }
+
+        .header-center {
+            flex: 1;
+            max-width: 480px;
+            margin: 0 24px;
+        }
+
+        .omnibar {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .omnibar input {
+            width: 100%;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 7px;
+            padding: 7px 34px 7px 32px;
+            color: #f8fafc;
+            font-size: 12.5px;
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .omnibar input:focus {
+            border-color: #38bdf8;
+            background: #0f172a;
+        }
+
+        .omnibar input::placeholder {
+            color: #64748b;
+        }
+
+        .omnibar .search-icon {
+            position: absolute;
+            left: 10px;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .omnibar .shortcut-badge {
+            position: absolute;
+            right: 8px;
+            background: #334155;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 4px;
+            border: 1px solid #475569;
+        }
+
+        .header-right-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 11.5px;
+            color: #94a3b8;
+            font-family: ui-monospace, monospace;
+        }
+
+        .header-right-status span.engine-accent {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        /* WORKSPACE (SIDEBAR + MAIN CONTENT) */
+        .app-workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* SIDEBAR NAVIGATION */
+        aside.app-sidebar {
+            width: 230px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            flex-shrink: 0;
+            overflow-y: auto;
+            user-select: none;
+        }
+
+        .sidebar-nav {
+            padding: 16px 10px 10px;
+        }
+
+        .nav-section-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #94a3b8;
+            padding: 8px 12px 6px;
+        }
+
+        .nav-list {
+            list-style: none;
+            margin-bottom: 14px;
+        }
+
+        .nav-item a {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: #334155;
+            text-decoration: none;
+            transition: all 0.12s ease-in-out;
+            margin-bottom: 2px;
+        }
+
+        .nav-item a:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .nav-item.active a {
+            background: #0f172a;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .nav-item .nav-label {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .nav-item .nav-icon {
+            font-size: 13px;
+            width: 16px;
+            text-align: center;
+            opacity: 0.8;
+        }
+
+        .badge-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 9999px;
+        }
+
+        .badge-active {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .badge-neo4j {
+            background: #1e293b;
+            color: #38bdf8;
+            font-size: 9.5px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .sidebar-footer {
+            padding: 14px 16px;
+            border-top: 1px solid var(--sidebar-border);
+            background: #f8fafc;
+        }
+
+        .aura-instance-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 3px;
+        }
+
+        .aura-latency {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .aura-uri {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 10px;
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* MAIN SCROLLABLE CONTENT VIEW */
+        main.app-main-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-page);
+        }
+
+        /* PAGE TOP BANNER */
+        .page-banner {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .page-banner-title h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.3px;
+        }
+
+        .page-banner-title p {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        /* CONTENT CONTAINER */
+        .page-container {
+            padding: 24px 28px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* GENERIC BUTTONS & BADGES */
+        .btn-ui {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #334155;
+            transition: all 0.15s;
+        }
+
+        .btn-ui:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+
+        .btn-ui.btn-primary {
+            background: #0f172a;
+            color: #ffffff;
+            border-color: #0f172a;
+        }
+
+        .btn-ui.btn-primary:hover {
+            background: #1e293b;
+        }
+
+        .btn-ui.btn-success {
+            background: #15803d;
+            color: #ffffff;
+            border-color: #15803d;
+        }
+
+        .btn-ui.btn-success:hover {
+            background: #166534;
+        }
+
+        /* MESSAGES & FLASH */
+        .flash-message {
+            padding: 12px 16px;
+            border-radius: 7px;
+            margin-bottom: 18px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .flash-message.success {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .flash-message.error, .flash-message.warning {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        /* DATA CARDS & TABLES */
+        .ui-card {
+            background: #ffffff;
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .ui-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ui-card-header h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .ui-card-body {
+            padding: 20px;
+        }
+
+        .ui-table-wrap {
+            overflow-x: auto;
+        }
+
+        table.ui-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        table.ui-table th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            white-space: nowrap;
+        }
+
+        table.ui-table td {
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: #1e293b;
+            vertical-align: middle;
+        }
+
+        table.ui-table tr:hover td {
+            background: #fcfdfe;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+
+    <!-- TOP HEADER BAR (Clean, No Sarah Connor Profile) -->
+    <header class="top-bar">
+        <a class="header-brand" href="/">
+            <div class="logo-icon">◈</div>
+            <div class="brand-text">
+                <h1>Library Management System</h1>
+                <p>DA3 Project · Flask &amp; Neo4j</p>
+            </div>
+            <div class="aura-status-pill" id="globalAuraPill">
+                <span class="pulse-dot" id="globalPulseDot"></span>
+                <span id="globalAuraStatus">Neo4j Aura Connected</span>
+            </div>
+        </a>
+
+        <div class="header-center">
+            <div class="omnibar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="globalOmnibar" placeholder="Quick search by Title, ISBN, Member ID, or Copy ID..."
+                       onkeydown="if(event.key==='Enter'){window.location.href='/books?search=' + encodeURIComponent(this.value.trim());}">
+                <span class="shortcut-badge">⌘K</span>
+            </div>
+        </div>
+
+        <div class="header-right-status">
+            <span>⚡ <span class="engine-accent">Graph Engine</span> · Neo4j v5.18</span>
+        </div>
+    </header>
+
+    <!-- APP WORKSPACE (SIDEBAR + MAIN VIEW) -->
+    <div class="app-workspace">
+
+        <!-- UNIFIED SIDEBAR NAVIGATION -->
+        <aside class="app-sidebar">
+            <div class="sidebar-nav">
+                
+                <div class="nav-section-title">Overview</div>
+                <ul class="nav-list">
+                    <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+                        <a href="/">
+                            <span class="nav-label"><span class="nav-icon">⊞</span> Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'circulation' %}active{% endif %}">
+                        <a href="/circulation">
+                            <span class="nav-label"><span class="nav-icon">⇄</span> Circulation Desk</span>
+                            <span class="badge-pill badge-active">Active</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'books' %}active{% endif %}">
+                        <a href="/books">
+                            <span class="nav-label"><span class="nav-icon">📖</span> Books Catalogue</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'book_copies' %}active{% endif %}">
+                        <a href="/data/book-copies">
+                            <span class="nav-label"><span class="nav-icon">📑</span> Inventory Copies</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-section-title">Graph Intelligence</div>
+                <ul class="nav-list">
+                    <li class="nav-item {% if active_page == 'graph' %}active{% endif %}">
+                        <a href="/graph">
+                            <span class="nav-label"><span class="nav-icon">🕸</span> Graph Explorer</span>
+                            <span class="badge-pill badge-neo4j">Neo4j</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'recommendations' %}active{% endif %}">
+                        <a href="/recommendations">
+                            <span class="nav-label"><span class="nav-icon">✦</span> Recommendations</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'fines' %}active{% endif %}">
+                        <a href="/data/fines">
+                            <span class="nav-label"><span class="nav-icon">💳</span> Fines &amp; Overdues</span>
+                            <span class="badge-pill badge-warning">Ledger</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-section-title">Graph Nodes &amp; Entities</div>
+                <ul class="nav-list">
+                    <li class="nav-item {% if active_page == 'members' %}active{% endif %}">
+                        <a href="/members"><span class="nav-label"><span class="nav-icon">👥</span> Members</span></a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'librarians' %}active{% endif %}">
+                        <a href="/data/librarians"><span class="nav-label"><span class="nav-icon">👔</span> Librarians</span></a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'authors' %}active{% endif %}">
+                        <a href="/data/authors"><span class="nav-label"><span class="nav-icon">✍</span> Authors</span></a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'categories' %}active{% endif %}">
+                        <a href="/data/categories"><span class="nav-label"><span class="nav-icon">🏷</span> Categories</span></a>
+                    </li>
+                    <li class="nav-item {% if active_page == 'transactions' %}active{% endif %}">
+                        <a href="/data/issue-transactions"><span class="nav-label"><span class="nav-icon">📋</span> Issue Transactions</span></a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="aura-instance-label">
+                    <span>AURA INSTANCE</span>
+                    <span class="aura-latency" id="globalAuraLatency">● checking...</span>
+                </div>
+                <div class="aura-uri" id="globalAuraUri">bolt://aura.neo4j.io:7687</div>
+            </div>
+        </aside>
+
+        <!-- MAIN SCROLLABLE BODY -->
+        <main class="app-main-content">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <!-- LIVE TELEMETRY HEALTH SCRIPT -->
+    <script>
+        (async function checkDatabaseHealth() {
+            try {
+                const res = await fetch("/api/health");
+                const pill = document.getElementById("globalAuraPill");
+                const dot = document.getElementById("globalPulseDot");
+                const label = document.getElementById("globalAuraStatus");
+                const latency = document.getElementById("globalAuraLatency");
+                const uri = document.getElementById("globalAuraUri");
+
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+
+                if (data.status === "connected") {
+                    if (label) label.textContent = `Neo4j Connected (${data.total_nodes} nodes)`;
+                    if (latency) {
+                        latency.style.color = "#10b981";
+                        latency.textContent = `● ${data.latency_ms}ms`;
+                    }
+                    if (uri) uri.textContent = data.uri || "neo4j-aura";
+                } else {
+                    throw new Error(data.error || "Disconnected");
+                }
+            } catch (err) {
+                const pill = document.getElementById("globalAuraPill");
+                const dot = document.getElementById("globalPulseDot");
+                const label = document.getElementById("globalAuraStatus");
+                const latency = document.getElementById("globalAuraLatency");
+
+                if (pill) {
+                    pill.style.background = "#450a0a";
+                    pill.style.borderColor = "#991b1b";
+                    pill.style.color = "#f87171";
+                }
+                if (dot) {
+                    dot.style.background = "#ef4444";
+                    dot.style.boxShadow = "0 0 6px #ef4444";
+                }
+                if (label) label.textContent = "Neo4j Disconnected";
+                if (latency) {
+                    latency.style.color = "#ef4444";
+                    latency.textContent = "● Offline";
+                }
+            }
+        })();
+    </script>
+</body>
+</html>
